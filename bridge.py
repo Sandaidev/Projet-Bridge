@@ -11,7 +11,7 @@ import requests
 
 from pyfirmata import Arduino, util, STRING_DATA
 
-JA_VERSION = "1.02"
+JA_VERSION = "1.03"
 board = Arduino("COM4")
 acquisition = util.Iterator(board)
 acquisition.start()
