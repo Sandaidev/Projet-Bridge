@@ -5,46 +5,67 @@
 # Needs the pyserial and requests module
 # The Arduino Board MUST be on /dev/ttyUSB0
 
-import serial
 import time
 import socket
 import requests
 
-print("Initializing...")
-ser = serial.Serial("COM4")
+from pyfirmata import Arduino, util, STRING_DATA
 
-# Attend 10 secondes
-time.sleep(10)
+JA_VERSION = "1.02"
+board = Arduino("COM4")
+acquisition = util.Iterator(board)
+acquisition.start()
 
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.connect(("8.8.8.8", 1))  # connect() for UDP doesn't send packets
-local_ip_address = "I"
-local_ip_address += s.getsockname()[0]
-local_ip_address += "P"
+INJECT_URL = "http://localhost/Jardin-Autonome-git/inject.php"
 
-# On envoie notre adresse IP locale
-ser.write(local_ip_address.encode("utf-8"))
 
-# Add empty param at the end of the URL
-inject_url = "http://localhost/Jardin-Autonome-git/inject.php?"
-print("Reached Master While loop.")
+def msg(text):
+    """
+    Sends a message to the LCD screen
+    """
+
+    if text:
+        board.send_sysex(STRING_DATA, util.str_to_two_byte_iter(text))
+
+
+# Définition des capteurs
+capteur_cuve_1 = board.get_pin("d:2:i")  # Digital:pin-2:Input
+capteur_cuve_2 = board.get_pin("d:3:i")
+capteur_cuve_3 = board.get_pin("d:4:i")
+capteur_cuve_4 = board.get_pin("d:5:i")
+capteur_humidite = board.get_pin("a:0:i")  # Analog:pin-0:Input
+
+msg("  Connexion OK  ")
+msg(" ")
+time.sleep(2)
+msg("  JA - Arduino  ")
+msg("  version " + JA_VERSION)
+time.sleep(5)
+
+print("Analog : " + str(capteur_humidite.read()))
+
+
 while True:
+    # Toutes les 15 minutes, on envoie les données des capteurs à la BDD
 
-    data = ""
+    for minutes_left in range(15):
+        msg("Envoi des donnes")
+        msg("dans " + str(15 - minutes_left) + " minutes")
+        time.sleep(60)
 
-    while ser.in_waiting > 0:
-        # Tant qu'on a des données dans le buffer...
-        data += ser.read().decode()
+    msg("    Envoi en    ")
+    msg("    cours...    ")
 
-        # Attendre un peu le temps que le buffer soit OK.
-        time.sleep(0.1)
+    capteur_data = {
+        "cuve1": 1,
+        "cuve2": capteur_cuve_2.read(),
+        "cuve3": capteur_cuve_3.read(),
+        "cuve4": capteur_cuve_4.read(),
+        "humidite": capteur_humidite.read(),
+    }
 
-    if data != "":
-        print("DATA RECEIVED")
-        print("\t" + data)
-        # On fait la requête à la page inject.php
-        url = inject_url + data
-        print(requests.get(url))
-        print("------------------")
+    requests.get(INJECT_URL, params=capteur_data)
 
-    time.sleep(0.5)
+    msg("   Donnees OK   ")
+    msg(" ")
+    time.sleep(10)
