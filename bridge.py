@@ -57,7 +57,7 @@ while True:
     msg("    cours...    ")
 
     capteur_data = {
-        "cuve1": 1,
+        "cuve1": capteur_cuve_1.read(),
         "cuve2": capteur_cuve_2.read(),
         "cuve3": capteur_cuve_3.read(),
         "cuve4": capteur_cuve_4.read(),
